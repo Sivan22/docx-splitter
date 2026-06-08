@@ -69,3 +69,24 @@ wireDrop('drop-split', 'file-split', async (files) => {
     showError($('split-error'), err.message);
   }
 });
+
+// --- Merge flow ---
+wireDrop('drop-merge', 'file-merge', async (files) => {
+  showError($('merge-error'), '');
+  $('merge-status').textContent = '';
+  if (!files.length) return;
+  try {
+    const payload = await Promise.all(
+      files.map(async (f) => ({ name: f.name, data: await f.arrayBuffer() })),
+    );
+    const { name, bytes } = await mergeDocx(payload);
+    download(
+      name,
+      bytes,
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    $('merge-status').textContent = `Merged ${files.length} part(s) → ${name}`;
+  } catch (err) {
+    showError($('merge-error'), err.message);
+  }
+});
