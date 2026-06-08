@@ -21,6 +21,11 @@ function showError(el, msg) {
   el.hidden = !msg;
 }
 
+// Escape user-derived text (e.g. filenames) before inserting into innerHTML.
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // --- Tabs ---
 function activate(which) {
   $('tab-split').classList.toggle('active', which === 'split');
@@ -63,7 +68,7 @@ wireDrop('drop-split', 'file-split', async (files) => {
     const { name, bytes } = await zipParts(parts, `${base}_parts.zip`);
     download(name, bytes, 'application/zip');
     $('split-summary').innerHTML =
-      `<li><strong>${total} part(s)</strong> — downloaded ${name}</li>` +
+      `<li><strong>${total} part(s)</strong> — downloaded ${escapeHtml(name)}</li>` +
       summary.map((s) => `<li>Part ${s.part}: ${s.words} words</li>`).join('');
   } catch (err) {
     showError($('split-error'), err.message);
