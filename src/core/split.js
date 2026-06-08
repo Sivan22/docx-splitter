@@ -32,28 +32,31 @@ const pad = (n, width) => String(n).padStart(width, '0');
 // Returns { parts: [{ name, bytes }], total, summary: [{ part, words }] }.
 export async function splitDocx(data, filename, maxWords) {
   if (!(maxWords > 0)) throw new Error('Max words must be a positive number.');
-  const source = await JSZip.loadAsync(data);
-  const docFile = source.file(DOC_PATH);
+  const zip = await JSZip.loadAsync(data);
+  const docFile = zip.file(DOC_PATH);
   if (!docFile) throw new Error("This file isn't a valid .docx (no document.xml).");
   const documentXml = await docFile.async('string');
   const { prefix, suffix, sectPrXml, realChildren } = parseDocumentXml(documentXml);
+  if (realChildren.length === 0) throw new Error('This document has no content to split.');
   const groups = partitionChildren(realChildren, maxWords);
   const total = groups.length;
   const hash = hashString(documentXml);
   const base = baseName(filename);
   const width = Math.max(2, String(total).length);
 
+  // Reuse one in-memory zip across parts: every original entry stays
+  // byte-identical; we only overwrite document.xml and the metadata sidecar
+  // for each output part (avoids re-parsing the whole zip once per part).
   const parts = [];
   const summary = [];
   for (let i = 0; i < groups.length; i++) {
+    const words = groups[i].reduce((a, c) => a + countWords(c.xml), 0);
     const childrenXml = groups[i].map((c) => c.xml).join('');
-    const partDocXml = buildDocumentXml(prefix, childrenXml, sectPrXml, suffix);
-    const z = await JSZip.loadAsync(data); // fresh copy of all original parts
-    z.file(DOC_PATH, partDocXml);
-    z.file(META_PATH, buildMeta({ origin: filename, part: i + 1, total, hash }));
-    const bytes = await z.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+    zip.file(DOC_PATH, buildDocumentXml(prefix, childrenXml, sectPrXml, suffix));
+    zip.file(META_PATH, buildMeta({ origin: filename, part: i + 1, total, hash }));
+    const bytes = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
     parts.push({ name: `${base}_part${pad(i + 1, width)}.docx`, bytes });
-    summary.push({ part: i + 1, words: groups[i].reduce((a, c) => a + countWords(c.xml), 0) });
+    summary.push({ part: i + 1, words });
   }
   return { parts, total, summary };
 }

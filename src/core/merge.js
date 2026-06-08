@@ -39,12 +39,15 @@ export async function mergeDocx(files) {
   const ordered = [];
   for (let i = 1; i <= total; i++) ordered.push(byIndex.get(i));
 
-  const first = parseDocumentXml(ordered[0].documentXml);
+  // Every part shares the same prefix/sectPr/suffix (splitDocx writes them
+  // identically into each part), so we take that envelope from part 1 and only
+  // concatenate the content children from every part, in order.
+  const template = parseDocumentXml(ordered[0].documentXml);
   let childrenXml = '';
   for (const l of ordered) {
     childrenXml += parseDocumentXml(l.documentXml).realChildren.map((c) => c.xml).join('');
   }
-  const mergedDocXml = buildDocumentXml(first.prefix, childrenXml, first.sectPrXml, first.suffix);
+  const mergedDocXml = buildDocumentXml(template.prefix, childrenXml, template.sectPrXml, template.suffix);
 
   const outZip = ordered[0].zip; // all non-document parts are byte-identical to the original
   outZip.file(DOC_PATH, mergedDocXml);

@@ -52,4 +52,8 @@ describe('splitDocx', () => {
     const data = await makeDocx(['a']);
     await expect(splitDocx(data, 'Doc.docx', 0)).rejects.toThrow();
   });
+  it('rejects a document with no content to split', async () => {
+    const data = await makeDocx([]);
+    await expect(splitDocx(data, 'Doc.docx', 5)).rejects.toThrow(/no content/i);
+  });
 });
