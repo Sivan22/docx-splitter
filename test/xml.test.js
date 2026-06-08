@@ -81,6 +81,20 @@ describe('parseDocumentXml', () => {
     expect(r.realChildren).toHaveLength(1);
     expect(r.prefix + r.realChildren[0].xml + r.suffix).toBe(doc);
   });
+  it('does not prefix-match <w:bodyPr> before the real <w:body>', () => {
+    const doc = `<w:document><w:bodyPr/><w:body><w:p><w:t>x</w:t></w:p><w:sectPr/></w:body></w:document>`;
+    const r = parseDocumentXml(doc);
+    expect(r.realChildren).toHaveLength(1);
+    expect(r.sectPrXml).toBe('<w:sectPr/>');
+    expect(r.prefix + r.realChildren.map((c) => c.xml).join('') + r.sectPrXml + r.suffix).toBe(doc);
+  });
+  it('handles a literal > inside a <w:body> attribute value', () => {
+    const doc = `<w:document><w:body w:x="a>b"><w:p><w:t>y</w:t></w:p><w:sectPr/></w:body></w:document>`;
+    const r = parseDocumentXml(doc);
+    expect(r.realChildren).toHaveLength(1);
+    expect(r.prefix.endsWith('>')).toBe(true);
+    expect(r.prefix + r.realChildren.map((c) => c.xml).join('') + r.sectPrXml + r.suffix).toBe(doc);
+  });
 });
 
 describe('buildDocumentXml', () => {

@@ -75,18 +75,31 @@ export function splitTopLevelElements(inner) {
 // Decompose word/document.xml so the body's top-level children can be sliced.
 // Invariant: prefix + realChildren.map(c=>c.xml).join('') + sectPrXml + suffix === xml
 export function parseDocumentXml(xml) {
-  const bodyOpen = xml.indexOf('<w:body');
+  // Locate the real <w:body> start tag (not a prefix sibling like <w:bodyPr>).
+  let bodyOpen = -1;
+  for (let from = 0; ; ) {
+    const idx = xml.indexOf('<w:body', from);
+    if (idx === -1) break;
+    const after = xml[idx + '<w:body'.length];
+    if (after === undefined || after === '>' || after === '/' || /\s/.test(after)) {
+      bodyOpen = idx;
+      break;
+    }
+    from = idx + '<w:body'.length;
+  }
   if (bodyOpen === -1) {
     return { prefix: xml, suffix: '', sectPrXml: '', realChildren: [] };
   }
-  const openEnd = xml.indexOf('>', bodyOpen);
-  if (xml[openEnd - 1] === '/') {
+  // Use the quote-aware tag scanner to find the end of the <w:body ...> open tag.
+  const bodyTag = readTag(xml, bodyOpen);
+  if (bodyTag.kind === 'selfclose') {
     // self-closing <w:body/> — no children
-    return { prefix: xml.slice(0, openEnd + 1), suffix: xml.slice(openEnd + 1), sectPrXml: '', realChildren: [] };
+    return { prefix: xml.slice(0, bodyTag.end), suffix: xml.slice(bodyTag.end), sectPrXml: '', realChildren: [] };
   }
+  const openEnd = bodyTag.end; // index just past the '>' of <w:body ...>
   const closeIdx = xml.lastIndexOf('</w:body>');
-  const headerPrefix = xml.slice(0, openEnd + 1);
-  const inner = xml.slice(openEnd + 1, closeIdx);
+  const headerPrefix = xml.slice(0, openEnd);
+  const inner = xml.slice(openEnd, closeIdx);
   const suffix = xml.slice(closeIdx);
   const { leading, children } = splitTopLevelElements(inner);
   let sectPrXml = '';
