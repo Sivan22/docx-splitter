@@ -1,4 +1,24 @@
 export const META_PATH = 'docx-splitter-meta.json';
+export const CONTENT_TYPES_PATH = '[Content_Types].xml';
+
+// The OPC content-type declaration for the metadata sidecar. Every part in a
+// .docx must have a content type or Word reports "unreadable content"; the
+// sidecar's .json extension is undeclared in a normal document, so each split
+// part adds this targeted Override (by exact part name, so it never collides).
+const META_OVERRIDE = `<Override PartName="/${META_PATH}" ContentType="application/json"/>`;
+
+// Add the metadata Override to [Content_Types].xml (idempotent).
+export function declareMetaContentType(contentTypesXml) {
+  if (contentTypesXml.includes(META_OVERRIDE)) return contentTypesXml;
+  const i = contentTypesXml.lastIndexOf('</Types>');
+  if (i === -1) throw new Error("This file isn't a valid .docx ([Content_Types].xml is malformed).");
+  return contentTypesXml.slice(0, i) + META_OVERRIDE + contentTypesXml.slice(i);
+}
+
+// Remove the metadata Override, restoring [Content_Types].xml byte-for-byte.
+export function undeclareMetaContentType(contentTypesXml) {
+  return contentTypesXml.replace(META_OVERRIDE, '');
+}
 
 // Small, dependency-free FNV-1a hash. Used only to group parts of one split
 // (not for security), so collision risk is irrelevant here.

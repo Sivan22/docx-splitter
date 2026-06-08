@@ -1338,12 +1338,19 @@ In the GitHub repo: Settings → Pages → Source = "GitHub Actions". Push to `m
 - [ ] Validation errors (missing/duplicate/foreign/non-part) shown clearly.
 - [ ] Deployed to GitHub Pages via Actions; live round trip works.
 
-## Risk Note (verify during Task 10/11 manual checks)
+## Risk Note — RESOLVED
 
-Parts carry an extra zip entry `docx-splitter-meta.json` that is not declared in
-`[Content_Types].xml`. Word ignores undeclared zip entries, so parts open
-normally — **confirm by opening a part in Word during manual verification.** If a
-strict environment ever rejects it, the fallback is to declare the metadata as a
-proper `docProps/custom.xml` part; this is localized to `split.js`/`merge.js` and
-does not affect the merged result (the sidecar is removed on merge).
+The predicted risk materialized: Word does **not** silently ignore the
+`docx-splitter-meta.json` sidecar. An OPC package requires every part to have a
+content type, and the `.json` extension is undeclared in a normal document, so
+Word reported "some content is unreadable" and offered to repair the file.
+
+**Fix (implemented):** `splitDocx` adds a targeted Override
+`<Override PartName="/docx-splitter-meta.json" ContentType="application/json"/>`
+to each part's `[Content_Types].xml`, making the package valid OPC. `mergeDocx`
+removes that exact Override, restoring `[Content_Types].xml` byte-for-byte. The
+declaration helpers live in `meta.js` (`declareMetaContentType` /
+`undeclareMetaContentType`), and `test/split.test.js` asserts every part has a
+declared content type while the merge round-trip test enforces the byte-identical
+restore.
 ```

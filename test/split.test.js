@@ -56,4 +56,20 @@ describe('splitDocx', () => {
     const data = await makeDocx([]);
     await expect(splitDocx(data, 'Doc.docx', 5)).rejects.toThrow(/no content/i);
   });
+  it('produces a valid OPC package: every part has a declared content type', async () => {
+    // Word shows "unreadable content" if any zip part lacks a content type in
+    // [Content_Types].xml (OPC rule). The metadata sidecar must be declared.
+    const data = await makeDocx(['a b', 'c d']);
+    const { parts } = await splitDocx(data, 'Doc.docx', 2);
+    const z = await JSZip.loadAsync(parts[0].bytes);
+    const ct = await z.file('[Content_Types].xml').async('string');
+    const defaults = [...ct.matchAll(/<Default Extension="([^"]+)"/g)].map((m) => m[1].toLowerCase());
+    const overrides = [...ct.matchAll(/<Override PartName="([^"]+)"/g)].map((m) => m[1]);
+    for (const path of Object.keys(z.files)) {
+      if (z.files[path].dir || path === '[Content_Types].xml') continue;
+      const ext = (path.split('.').pop() || '').toLowerCase();
+      const covered = defaults.includes(ext) || overrides.includes('/' + path);
+      expect(covered, `part "${path}" must have a declared content type`).toBe(true);
+    }
+  });
 });
