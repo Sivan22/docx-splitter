@@ -71,3 +71,33 @@ export function splitTopLevelElements(inner) {
   const leading = els.length ? inner.slice(0, els[0].start) : inner;
   return { leading, children };
 }
+
+// Decompose word/document.xml so the body's top-level children can be sliced.
+// Invariant: prefix + realChildren.map(c=>c.xml).join('') + sectPrXml + suffix === xml
+export function parseDocumentXml(xml) {
+  const bodyOpen = xml.indexOf('<w:body');
+  if (bodyOpen === -1) {
+    return { prefix: xml, suffix: '', sectPrXml: '', realChildren: [] };
+  }
+  const openEnd = xml.indexOf('>', bodyOpen);
+  if (xml[openEnd - 1] === '/') {
+    // self-closing <w:body/> — no children
+    return { prefix: xml.slice(0, openEnd + 1), suffix: xml.slice(openEnd + 1), sectPrXml: '', realChildren: [] };
+  }
+  const closeIdx = xml.lastIndexOf('</w:body>');
+  const headerPrefix = xml.slice(0, openEnd + 1);
+  const inner = xml.slice(openEnd + 1, closeIdx);
+  const suffix = xml.slice(closeIdx);
+  const { leading, children } = splitTopLevelElements(inner);
+  let sectPrXml = '';
+  let realChildren = children;
+  if (children.length && children[children.length - 1].tag === 'w:sectPr') {
+    sectPrXml = children[children.length - 1].xml;
+    realChildren = children.slice(0, -1);
+  }
+  return { prefix: headerPrefix + leading, suffix, sectPrXml, realChildren };
+}
+
+export function buildDocumentXml(prefix, childrenXml, sectPrXml, suffix) {
+  return prefix + childrenXml + sectPrXml + suffix;
+}

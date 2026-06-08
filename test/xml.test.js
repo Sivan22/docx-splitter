@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readTag } from '../src/core/xml.js';
 import { splitTopLevelElements } from '../src/core/xml.js';
+import { parseDocumentXml, buildDocumentXml } from '../src/core/xml.js';
 
 describe('readTag', () => {
   it('reads an open tag with attributes', () => {
@@ -51,5 +52,39 @@ describe('splitTopLevelElements', () => {
     const { leading, children } = splitTopLevelElements(inner);
     expect(leading).toBe('\n  ');
     expect(leading + children.map((c) => c.xml).join('')).toBe(inner);
+  });
+});
+
+const DOC = `<?xml version="1.0"?><w:document xmlns:w="x"><w:body>` +
+  `<w:p><w:t>one</w:t></w:p>` +
+  `<w:p><w:t>two</w:t></w:p>` +
+  `<w:sectPr><w:pgSz/></w:sectPr>` +
+  `</w:body></w:document>`;
+
+describe('parseDocumentXml', () => {
+  it('separates prefix, real children, body-level sectPr, and suffix', () => {
+    const r = parseDocumentXml(DOC);
+    expect(r.realChildren.map((c) => c.tag)).toEqual(['w:p', 'w:p']);
+    expect(r.sectPrXml).toBe('<w:sectPr><w:pgSz/></w:sectPr>');
+    expect(r.prefix.endsWith('<w:body>')).toBe(true);
+    expect(r.suffix).toBe('</w:body></w:document>');
+  });
+  it('satisfies the round-trip invariant exactly', () => {
+    const r = parseDocumentXml(DOC);
+    const rebuilt = r.prefix + r.realChildren.map((c) => c.xml).join('') + r.sectPrXml + r.suffix;
+    expect(rebuilt).toBe(DOC);
+  });
+  it('treats a document with no body-level sectPr as empty sectPr', () => {
+    const doc = `<w:document><w:body><w:p><w:t>x</w:t></w:p></w:body></w:document>`;
+    const r = parseDocumentXml(doc);
+    expect(r.sectPrXml).toBe('');
+    expect(r.realChildren).toHaveLength(1);
+    expect(r.prefix + r.realChildren[0].xml + r.suffix).toBe(doc);
+  });
+});
+
+describe('buildDocumentXml', () => {
+  it('concatenates the four parts in order', () => {
+    expect(buildDocumentXml('A', 'B', 'C', 'D')).toBe('ABCD');
   });
 });
