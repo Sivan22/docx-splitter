@@ -1,6 +1,13 @@
 import JSZip from 'jszip';
 import { parseDocumentXml, buildDocumentXml } from './xml.js';
-import { META_PATH, CONTENT_TYPES_PATH, readMetaJson, undeclareMetaContentType } from './meta.js';
+import {
+  META_PATH,
+  CONTENT_TYPES_PATH,
+  ROOT_RELS_PATH,
+  readMetaJson,
+  undeclareMetaContentType,
+  removeMetaRelationship,
+} from './meta.js';
 
 const DOC_PATH = 'word/document.xml';
 
@@ -52,10 +59,12 @@ export async function mergeDocx(files) {
   const outZip = ordered[0].zip; // all non-document parts are byte-identical to the original
   outZip.file(DOC_PATH, mergedDocXml);
   outZip.remove(META_PATH);
-  // Undo the metadata content-type declaration split.js added, restoring the
-  // original [Content_Types].xml exactly.
+  // Undo the content-type declaration and the package relationship that
+  // split.js added, restoring [Content_Types].xml and _rels/.rels exactly.
   const ctFile = outZip.file(CONTENT_TYPES_PATH);
   if (ctFile) outZip.file(CONTENT_TYPES_PATH, undeclareMetaContentType(await ctFile.async('string')));
+  const relsFile = outZip.file(ROOT_RELS_PATH);
+  if (relsFile) outZip.file(ROOT_RELS_PATH, removeMetaRelationship(await relsFile.async('string')));
   const bytes = await outZip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
   return { name: origin, bytes };
 }

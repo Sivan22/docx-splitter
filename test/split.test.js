@@ -72,4 +72,13 @@ describe('splitDocx', () => {
       expect(covered, `part "${path}" must have a declared content type`).toBe(true);
     }
   });
+  it('references the metadata part from the package relationships (not orphaned)', async () => {
+    // An extra part that no relationship points to is treated by Word as not
+    // belonging to the package — it must be referenced from _rels/.rels.
+    const data = await makeDocx(['a b', 'c d']);
+    const { parts } = await splitDocx(data, 'Doc.docx', 2);
+    const z = await JSZip.loadAsync(parts[0].bytes);
+    const rels = await z.file('_rels/.rels').async('string');
+    expect(rels).toContain('Target="docx-splitter-meta.json"');
+  });
 });

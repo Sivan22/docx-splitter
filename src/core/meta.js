@@ -20,6 +20,28 @@ export function undeclareMetaContentType(contentTypesXml) {
   return contentTypesXml.replace(META_OVERRIDE, '');
 }
 
+export const ROOT_RELS_PATH = '_rels/.rels';
+
+// The package-level relationship that references the metadata part. Word treats
+// a part that no relationship points to as not belonging to the package and
+// reports the document as corrupt, so each split part references the sidecar
+// here. The relationship Type is a private URI Word doesn't recognize, so Word
+// ignores the part entirely instead of trying to interpret it.
+const META_REL = `<Relationship Id="rIdDocxSplitterMeta" Type="https://docx-splitter.app/relationships/metadata" Target="${META_PATH}"/>`;
+
+// Add the metadata relationship to the package root _rels/.rels (idempotent).
+export function addMetaRelationship(rootRelsXml) {
+  if (rootRelsXml.includes(META_REL)) return rootRelsXml;
+  const i = rootRelsXml.lastIndexOf('</Relationships>');
+  if (i === -1) throw new Error("This file isn't a valid .docx (_rels/.rels is malformed).");
+  return rootRelsXml.slice(0, i) + META_REL + rootRelsXml.slice(i);
+}
+
+// Remove the metadata relationship, restoring _rels/.rels byte-for-byte.
+export function removeMetaRelationship(rootRelsXml) {
+  return rootRelsXml.replace(META_REL, '');
+}
+
 // Small, dependency-free FNV-1a hash. Used only to group parts of one split
 // (not for security), so collision risk is irrelevant here.
 export function hashString(s) {

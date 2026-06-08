@@ -1,7 +1,15 @@
 import JSZip from 'jszip';
 import { parseDocumentXml, buildDocumentXml } from './xml.js';
 import { countWords } from './words.js';
-import { META_PATH, CONTENT_TYPES_PATH, buildMeta, hashString, declareMetaContentType } from './meta.js';
+import {
+  META_PATH,
+  CONTENT_TYPES_PATH,
+  ROOT_RELS_PATH,
+  buildMeta,
+  hashString,
+  declareMetaContentType,
+  addMetaRelationship,
+} from './meta.js';
 
 const DOC_PATH = 'word/document.xml';
 
@@ -44,12 +52,16 @@ export async function splitDocx(data, filename, maxWords) {
   const base = baseName(filename);
   const width = Math.max(2, String(total).length);
 
-  // Declare a content type for the metadata sidecar so each part is a valid OPC
-  // package (otherwise Word reports "unreadable content"). The same declaration
-  // applies to every part, so do it once on the shared zip.
+  // Make the metadata sidecar a valid, recognized custom part: declare its
+  // content type in [Content_Types].xml AND reference it from the package root
+  // relationships. Without both, Word reports "unreadable content". The same
+  // changes apply to every part, so do them once on the shared zip.
   const ctFile = zip.file(CONTENT_TYPES_PATH);
   if (!ctFile) throw new Error("This file isn't a valid .docx (no [Content_Types].xml).");
   zip.file(CONTENT_TYPES_PATH, declareMetaContentType(await ctFile.async('string')));
+  const relsFile = zip.file(ROOT_RELS_PATH);
+  if (!relsFile) throw new Error("This file isn't a valid .docx (no _rels/.rels).");
+  zip.file(ROOT_RELS_PATH, addMetaRelationship(await relsFile.async('string')));
 
   // Reuse one in-memory zip across parts: every original entry stays
   // byte-identical; we only overwrite document.xml and the metadata sidecar

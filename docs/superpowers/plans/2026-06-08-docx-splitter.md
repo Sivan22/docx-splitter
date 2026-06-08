@@ -1345,12 +1345,17 @@ The predicted risk materialized: Word does **not** silently ignore the
 content type, and the `.json` extension is undeclared in a normal document, so
 Word reported "some content is unreadable" and offered to repair the file.
 
-**Fix (implemented):** `splitDocx` adds a targeted Override
-`<Override PartName="/docx-splitter-meta.json" ContentType="application/json"/>`
-to each part's `[Content_Types].xml`, making the package valid OPC. `mergeDocx`
-removes that exact Override, restoring `[Content_Types].xml` byte-for-byte. The
-declaration helpers live in `meta.js` (`declareMetaContentType` /
-`undeclareMetaContentType`), and `test/split.test.js` asserts every part has a
-declared content type while the merge round-trip test enforces the byte-identical
-restore.
+**Fix (implemented):** a valid custom part needs **both** a content type **and** a
+relationship (Word treats an unreferenced part as corruption). So `splitDocx`:
+1. adds `<Override PartName="/docx-splitter-meta.json" ContentType="application/json"/>`
+   to each part's `[Content_Types].xml`, and
+2. adds a `<Relationship ... Target="docx-splitter-meta.json"/>` (private Type
+   URI) to the package root `_rels/.rels`.
+`mergeDocx` removes both exactly, restoring `[Content_Types].xml` and `_rels/.rels`
+byte-for-byte. Helpers live in `meta.js` (`declareMetaContentType` /
+`undeclareMetaContentType`, `addMetaRelationship` / `removeMetaRelationship`).
+`test/split.test.js` asserts every part has a declared content type and the
+metadata part is referenced; the merge round-trip test enforces the byte-identical
+restore. Verified on a document that already ships its own `docProps/custom.xml`
+(no collision).
 ```
