@@ -16,7 +16,10 @@ uploaded to any server.
 - Split one `.docx` into N parts, each at or under a user-defined **max word
   count**, cutting only at the **last paragraph break before the limit**.
 - **Lossless:** each part is a valid standalone `.docx`; merging the full set
-  reproduces the original document byte-for-byte.
+  reproduces the original document — **every internal zip part** (`document.xml`,
+  `styles.xml`, etc.) byte-identical to the original, so it opens identically in
+  Word. (The outer zip *container* may differ cosmetically — compression level,
+  entry order, timestamps — without affecting document content; see Testing.)
 - **Foolproof merge:** parts carry embedded metadata so the app can auto-order
   them and refuse incomplete, duplicated, or foreign sets.
 - **Privacy:** 100% client-side, no uploads, works offline.
@@ -105,7 +108,10 @@ Counts words in the concatenated text of all `<w:t>` descendants of a body child
 3. Order by index. Concatenate the body-children slices (dropping every part's
    appended closing `<w:sectPr>` except restoring the single original one at the
    end), strip metadata, repackage to a single `.docx`.
-4. Result is byte-equivalent to the original.
+4. Result has every internal part byte-identical to the original's, so it opens
+   identically in Word. (To also make the outer container reproducible, JSZip is
+   configured with a fixed compression setting, preserved entry order, and fixed
+   timestamps — a best-effort stretch, not a correctness requirement.)
 
 ### `meta` (embedded metadata)
 Stored as a dedicated zip entry (custom XML part) — **not** inside
@@ -138,8 +144,10 @@ Vitest unit tests on the pure core:
 - `splitDocx`: exact-boundary cut, oversize-single-paragraph part, single part
   when under limit, correct metadata on each part.
 - `mergeDocx`: happy path; missing/duplicate/foreign-part rejections.
-- **Round-trip property:** `merge(split(doc, k)) === doc` byte-for-byte across a
-  set of sample `.docx` fixtures and several `k` values.
+- **Round-trip property:** for `merge(split(doc, k))`, **every internal zip part
+  is byte-identical** to the original's, across a set of sample `.docx` fixtures
+  and several `k` values. (Outer-container byte-equality is asserted as a
+  secondary, best-effort check once reproducible-zip options are in place.)
 
 ## Deployment
 
