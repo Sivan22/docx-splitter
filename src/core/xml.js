@@ -33,3 +33,41 @@ export function readTag(s, pos) {
   }
   return { kind: isClose ? 'close' : 'open', name, end: s.length };
 }
+
+// Split the inner XML of <w:body> into top-level child elements.
+// Each child's xml is the exact substring from its '<' up to the next child's
+// '<' (trailing-run semantics), so leading + children.join('') === inner.
+export function splitTopLevelElements(inner) {
+  const len = inner.length;
+  const els = []; // { start, end, tag }
+  let p = 0;
+  while (p < len) {
+    const lt = inner.indexOf('<', p);
+    if (lt === -1) break;
+    let depth = 0;
+    let q = lt;
+    let topName = null;
+    while (q < len) {
+      if (inner[q] === '<') {
+        const tag = readTag(inner, q);
+        if (topName === null && (tag.kind === 'open' || tag.kind === 'selfclose')) {
+          topName = tag.name;
+        }
+        if (tag.kind === 'open') depth++;
+        else if (tag.kind === 'close') depth--;
+        q = tag.end;
+        if (depth === 0) break;
+      } else {
+        q++;
+      }
+    }
+    els.push({ start: lt, end: q, tag: topName });
+    p = q;
+  }
+  const children = els.map((el, i) => {
+    const xmlEnd = i + 1 < els.length ? els[i + 1].start : len;
+    return { tag: el.tag, xml: inner.slice(el.start, xmlEnd) };
+  });
+  const leading = els.length ? inner.slice(0, els[0].start) : inner;
+  return { leading, children };
+}
