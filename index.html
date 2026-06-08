@@ -6,7 +6,33 @@
     <title>DOCX Splitter &amp; Merger</title>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+  <main id="app">
+    <header>
+      <h1>DOCX Splitter &amp; Merger</h1>
+      <p class="privacy">🔒 100% in your browser. No uploads, nothing leaves your device. Works offline.</p>
+    </header>
+    <nav class="tabs">
+      <button id="tab-split" class="tab active">Split</button>
+      <button id="tab-merge" class="tab">Merge</button>
+    </nav>
+
+    <section id="panel-split" class="panel">
+      <label>Max words per part
+        <input id="max-words" type="number" min="1" value="1000" />
+      </label>
+      <div id="drop-split" class="dropzone">Drop a .docx here, or click to choose</div>
+      <input id="file-split" type="file" accept=".docx" hidden />
+      <p id="split-error" class="error" hidden></p>
+      <ul id="split-summary" class="summary"></ul>
+    </section>
+
+    <section id="panel-merge" class="panel" hidden>
+      <div id="drop-merge" class="dropzone">Drop the split parts here, or click to choose</div>
+      <input id="file-merge" type="file" accept=".docx" multiple hidden />
+      <p id="merge-error" class="error" hidden></p>
+      <p id="merge-status" class="status"></p>
+    </section>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
 </html>
